@@ -53,6 +53,7 @@ class Folder(AccessControlledModel):
             '_id', 'name', 'public', 'description', 'created', 'updated',
             'size', 'meta', 'parentId', 'parentCollection', 'creatorId',
             'baseParentType', 'baseParentId'))
+        self.exposeFields(level=AccessType.ADMIN, fields={'publicFlags'})
 
     def validate(self, doc, allowRename=False):
         """
@@ -775,7 +776,7 @@ class Folder(AccessControlledModel):
         return self.load(newFolder['_id'], force=True)
 
     def setAccessList(self, doc, access, save=False, recurse=False, user=None,
-                      progress=noProgress, setPublic=None):
+                      progress=noProgress, setPublic=None, publicFlags=None):
         """
         Overrides AccessControlledModel.setAccessList to add a recursive
         option. When `recurse=True`, this will set the access list on all
@@ -798,11 +799,18 @@ class Folder(AccessControlledModel):
         :param setPublic: Pass this if you wish to set the public flag on the
             resources being updated.
         :type setPublic: bool or None
+        :param publicFlags: Pass this if you wish to set the public flag list on
+            resources being updated.
+        :type publicFlags: list or None
         """
         progress.update(increment=1, message='Updating ' + doc['name'])
         if setPublic is not None:
             self.setPublic(doc, setPublic, save=False)
-        doc = AccessControlledModel.setAccessList(self, doc, access, save=save)
+
+        if publicFlags is not None:
+            doc = self.setPublicFlags(doc, publicFlags, user=user, save=False)
+
+        doc = AccessControlledModel.setAccessList(self, doc, access, save=save, user=user)
 
         if recurse:
             cursor = self.find({
@@ -816,7 +824,7 @@ class Folder(AccessControlledModel):
             for folder in subfolders:
                 self.setAccessList(
                     folder, access, save=True, recurse=True, user=user,
-                    progress=progress, setPublic=setPublic)
+                    progress=progress, setPublic=setPublic, publicFlags=publicFlags)
 
         return doc
 
